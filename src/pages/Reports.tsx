@@ -1,4 +1,5 @@
-import { Download, FileText, Calendar, TrendingUp, Users, IndianRupee, PieChart, BarChart3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, FileText, Calendar, Users, IndianRupee, PieChart, BarChart3, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,23 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { generateReport } from "@/lib/pdf";
+import { useToast } from "@/hooks/use-toast";
 
 const reportTypes = [
   {
     id: "daily-collection",
     title: "Daily Collection Report",
-    description: "Summary of all payments received today",
+    description: "Summary of all payments received on a specific date",
     icon: IndianRupee,
     color: "bg-success/10 text-success",
-    formats: ["PDF", "Excel"],
-  },
-  {
-    id: "monthly-collection",
-    title: "Monthly Collection Report",
-    description: "Detailed breakdown of monthly fee collection",
-    icon: Calendar,
-    color: "bg-secondary/10 text-secondary",
-    formats: ["PDF", "Excel"],
+    formats: ["PDF", "Print"],
+    needsDate: true,
   },
   {
     id: "pending-fees",
@@ -33,15 +31,8 @@ const reportTypes = [
     description: "List of all outstanding fee payments",
     icon: FileText,
     color: "bg-warning/10 text-warning",
-    formats: ["PDF", "Excel"],
-  },
-  {
-    id: "student-ledger",
-    title: "Student Ledger",
-    description: "Individual student payment history",
-    icon: Users,
-    color: "bg-primary/10 text-primary",
-    formats: ["PDF"],
+    formats: ["PDF", "Print"],
+    needsDate: false,
   },
   {
     id: "class-wise",
@@ -49,26 +40,39 @@ const reportTypes = [
     description: "Fee collection summary by class",
     icon: BarChart3,
     color: "bg-accent/10 text-accent",
-    formats: ["PDF", "Excel"],
+    formats: ["PDF", "Print"],
+    needsDate: false,
   },
-  {
-    id: "payment-mode",
-    title: "Payment Mode Analysis",
-    description: "Breakdown by payment methods (UPI, Card, etc.)",
-    icon: PieChart,
-    color: "bg-muted text-muted-foreground",
-    formats: ["PDF", "Excel"],
-  },
-];
-
-const recentReports = [
-  { name: "Daily Collection - Jan 15, 2024", date: "Today, 6:00 PM", size: "245 KB", type: "PDF" },
-  { name: "Monthly Collection - December 2023", date: "Jan 1, 2024", size: "1.2 MB", type: "Excel" },
-  { name: "Pending Fees Q4 2023", date: "Dec 31, 2023", size: "890 KB", type: "PDF" },
-  { name: "Class 10 Ledger - 2023-24", date: "Dec 28, 2023", size: "2.1 MB", type: "PDF" },
 ];
 
 export default function Reports() {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleGenerateReport = async (reportId: string) => {
+    setLoadingReport(reportId);
+    try {
+      await generateReport(
+        reportId as "daily-collection" | "pending-fees" | "class-wise",
+        { startDate: selectedDate }
+      );
+      toast({
+        title: "Report generated",
+        description: "The report has been opened in a new window for printing.",
+      });
+    } catch (error: any) {
+      console.error("Error generating report:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate report",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingReport(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -82,16 +86,16 @@ export default function Reports() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Select defaultValue="2024">
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Academic Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2024">2023-24</SelectItem>
-                  <SelectItem value="2023">2022-23</SelectItem>
-                  <SelectItem value="2022">2021-22</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="report-date" className="text-sm text-muted-foreground">Date:</Label>
+                <Input
+                  id="report-date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-[180px]"
+                />
+              </div>
             </div>
           </div>
         </header>
@@ -101,7 +105,7 @@ export default function Reports() {
           {reportTypes.map((report, idx) => (
             <Card
               key={report.id}
-              className="overflow-hidden hover-lift animate-slide-up cursor-pointer group"
+              className="overflow-hidden hover-lift animate-slide-up"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
               <CardHeader className="pb-3">
@@ -125,9 +129,19 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" className="flex-1 gap-2">
-                    <Download className="h-4 w-4" />
-                    Generate
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="flex-1 gap-2"
+                    onClick={() => handleGenerateReport(report.id)}
+                    disabled={loadingReport === report.id}
+                  >
+                    {loadingReport === report.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {loadingReport === report.id ? "Generating..." : "Generate"}
                   </Button>
                 </div>
               </CardContent>
@@ -135,62 +149,26 @@ export default function Reports() {
           ))}
         </div>
 
-        {/* Recent Reports */}
-        <div className="animate-slide-up" style={{ animationDelay: "600ms" }}>
-          <h2 className="font-display text-xl font-semibold text-foreground mb-4">Recent Reports</h2>
-          <div className="rounded-xl bg-card border border-border/50 shadow-md overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">
-                    Report Name
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">
-                    Generated
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">
-                    Size
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentReports.map((report) => (
-                  <tr key={report.name} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                        <span className="font-medium text-foreground">{report.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-muted-foreground">{report.date}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded bg-muted text-xs font-medium text-muted-foreground">
-                        {report.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-muted-foreground">{report.size}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" className="gap-2">
-                        <Download className="h-4 w-4" />
-                        Download
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Info Card */}
+        <Card className="animate-slide-up" style={{ animationDelay: "400ms" }}>
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold text-lg text-foreground mb-1">
+                  How Reports Work
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  Click "Generate" to create a report. A new window will open with the formatted report.
+                  Use your browser's print function (Ctrl/Cmd + P) to save as PDF or print directly.
+                  Reports are generated from live database data and reflect the current state of your records.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
