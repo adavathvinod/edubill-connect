@@ -1,53 +1,25 @@
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle2, Clock, XCircle, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
-const recentPayments = [
-  {
-    id: "PAY-001",
-    student: "Aarav Sharma",
-    class: "Class 10-A",
-    amount: "₹15,000",
-    date: "Today, 2:30 PM",
-    status: "completed",
-    method: "UPI",
-  },
-  {
-    id: "PAY-002",
-    student: "Priya Patel",
-    class: "Class 8-B",
-    amount: "₹12,500",
-    date: "Today, 1:15 PM",
-    status: "completed",
-    method: "Card",
-  },
-  {
-    id: "PAY-003",
-    student: "Rohan Kumar",
-    class: "Class 12-A",
-    amount: "₹18,000",
-    date: "Today, 11:00 AM",
-    status: "pending",
-    method: "NetBanking",
-  },
-  {
-    id: "PAY-004",
-    student: "Ananya Singh",
-    class: "Class 6-C",
-    amount: "₹10,000",
-    date: "Yesterday",
-    status: "completed",
-    method: "UPI",
-  },
-  {
-    id: "PAY-005",
-    student: "Vikram Reddy",
-    class: "Class 9-A",
-    amount: "₹14,000",
-    date: "Yesterday",
-    status: "failed",
-    method: "Card",
-  },
-];
+interface Payment {
+  id: string;
+  transaction_id: string;
+  amount: number;
+  payment_method: string;
+  status: string;
+  created_at: string;
+  invoices: {
+    invoice_number: string;
+    students: {
+      first_name: string;
+      last_name: string;
+      class: string;
+      section: string;
+    };
+  };
+}
 
 const statusConfig = {
   completed: {
@@ -67,75 +39,157 @@ const statusConfig = {
   },
 };
 
+const methodLabels: Record<string, string> = {
+  upi: "UPI",
+  card: "Card",
+  netbanking: "Net Banking",
+  cash: "Cash",
+  cheque: "Cheque",
+};
+
 export function RecentPayments() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("payments")
+          .select(`
+            id,
+            transaction_id,
+            amount,
+            payment_method,
+            status,
+            created_at,
+            invoices (
+              invoice_number,
+              students (
+                first_name,
+                last_name,
+                class,
+                section
+              )
+            )
+          `)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (error) throw error;
+        setPayments(data || []);
+      } catch (error) {
+        console.error("Error fetching payments:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    
+    if (hours < 24) {
+      return `Today, ${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+    } else if (hours < 48) {
+      return "Yesterday";
+    }
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  };
+
   return (
     <div className="rounded-xl bg-card border border-border/50 shadow-md overflow-hidden animate-slide-up" style={{ animationDelay: "300ms" }}>
       <div className="px-6 py-4 border-b border-border">
         <h3 className="font-display font-semibold text-lg text-foreground">Recent Payments</h3>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Student
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Method
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Date
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {recentPayments.map((payment, idx) => {
-              const status = statusConfig[payment.status as keyof typeof statusConfig];
-              const StatusIcon = status.icon;
-              return (
-                <tr
-                  key={payment.id}
-                  className="hover:bg-muted/30 transition-colors"
-                  style={{ animationDelay: `${400 + idx * 50}ms` }}
-                >
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="font-medium text-foreground">{payment.student}</p>
-                      <p className="text-sm text-muted-foreground">{payment.class}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-semibold text-foreground">{payment.amount}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-muted-foreground">{payment.method}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-                        status.color
-                      )}
-                    >
-                      <StatusIcon className="h-3.5 w-3.5" />
-                      {status.label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-muted-foreground">{payment.date}</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 rounded-full border-4 border-secondary border-t-transparent animate-spin" />
+        </div>
+      ) : payments.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <Receipt className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground">No payments recorded yet</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Student
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Method
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Date
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {payments.map((payment) => {
+                const status = statusConfig[payment.status as keyof typeof statusConfig] || statusConfig.pending;
+                const StatusIcon = status.icon;
+                const student = payment.invoices?.students;
+                
+                return (
+                  <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {student ? `${student.first_name} ${student.last_name}` : "Unknown"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {student ? `Class ${student.class}-${student.section}` : ""}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-foreground">
+                        ₹{Number(payment.amount).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-muted-foreground">
+                        {methodLabels[payment.payment_method] || payment.payment_method}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+                          status.color
+                        )}
+                      >
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-muted-foreground">{formatDate(payment.created_at)}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

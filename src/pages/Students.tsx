@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Filter, UserPlus, Download, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, UserPlus, Download, MoreHorizontal, Eye, Edit, Trash2, Users } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,36 +16,145 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AddStudentDialog } from "@/components/students/AddStudentDialog";
+import { EditStudentDialog } from "@/components/students/EditStudentDialog";
+import { DeleteConfirmDialog } from "@/components/shared/DeleteConfirmDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const students = [
-  { id: "STU001", name: "Aarav Sharma", class: "10-A", admNo: "2024001", parent: "Rajesh Sharma", phone: "+91 98765 43210", status: "active", fees: "paid" },
-  { id: "STU002", name: "Priya Patel", class: "8-B", admNo: "2024015", parent: "Amit Patel", phone: "+91 98765 43211", status: "active", fees: "partial" },
-  { id: "STU003", name: "Rohan Kumar", class: "12-A", admNo: "2022089", parent: "Vijay Kumar", phone: "+91 98765 43212", status: "active", fees: "pending" },
-  { id: "STU004", name: "Ananya Singh", class: "6-C", admNo: "2024102", parent: "Deepak Singh", phone: "+91 98765 43213", status: "active", fees: "paid" },
-  { id: "STU005", name: "Vikram Reddy", class: "9-A", admNo: "2023045", parent: "Krishna Reddy", phone: "+91 98765 43214", status: "inactive", fees: "pending" },
-  { id: "STU006", name: "Sneha Gupta", class: "11-B", admNo: "2023078", parent: "Rakesh Gupta", phone: "+91 98765 43215", status: "active", fees: "paid" },
-  { id: "STU007", name: "Arjun Nair", class: "7-A", admNo: "2024056", parent: "Suresh Nair", phone: "+91 98765 43216", status: "active", fees: "partial" },
-  { id: "STU008", name: "Kavya Iyer", class: "10-B", admNo: "2023112", parent: "Venkat Iyer", phone: "+91 98765 43217", status: "active", fees: "paid" },
-];
-
-const feeStatusConfig = {
-  paid: { label: "Paid", color: "bg-success/10 text-success" },
-  partial: { label: "Partial", color: "bg-warning/10 text-warning" },
-  pending: { label: "Pending", color: "bg-destructive/10 text-destructive" },
-};
+interface Student {
+  id: string;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  class: string;
+  section: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_email: string | null;
+  address: string | null;
+  date_of_birth: string | null;
+  is_active: boolean;
+  created_at: string;
+}
 
 export default function Students() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const { toast } = useToast();
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error: any) {
+      console.error("Error fetching students:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load students",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const handleEdit = (student: Student) => {
+    setSelectedStudent(student);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (student: Student) => {
+    setSelectedStudent(student);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedStudent) return;
+    
+    setDeleteLoading(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", selectedStudent.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Student deleted",
+        description: `${selectedStudent.first_name} ${selectedStudent.last_name} has been removed.`,
+      });
+      
+      fetchStudents();
+      setDeleteDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error deleting student:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete student",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   const filteredStudents = students.filter((student) => {
     const matchesSearch =
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.admNo.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesClass = classFilter === "all" || student.class.startsWith(classFilter);
+      `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.admission_number.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesClass = classFilter === "all" || student.class === classFilter;
     return matchesSearch && matchesClass;
   });
+
+  const exportStudents = () => {
+    const headers = ["Admission No", "Name", "Class", "Section", "Parent", "Phone", "Email", "Status"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredStudents.map(s => [
+        s.admission_number,
+        `${s.first_name} ${s.last_name}`,
+        s.class,
+        s.section,
+        s.parent_name,
+        s.parent_phone,
+        s.parent_email || "",
+        s.is_active ? "Active" : "Inactive"
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `students_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export complete",
+      description: `${filteredStudents.length} students exported to CSV`,
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -60,11 +169,11 @@ export default function Students() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={exportStudents}>
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-              <Button variant="secondary" className="gap-2">
+              <Button variant="secondary" className="gap-2" onClick={() => setAddDialogOpen(true)}>
                 <UserPlus className="h-4 w-4" />
                 Add Student
               </Button>
@@ -89,142 +198,172 @@ export default function Students() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Classes</SelectItem>
-              <SelectItem value="6">Class 6</SelectItem>
-              <SelectItem value="7">Class 7</SelectItem>
-              <SelectItem value="8">Class 8</SelectItem>
-              <SelectItem value="9">Class 9</SelectItem>
-              <SelectItem value="10">Class 10</SelectItem>
-              <SelectItem value="11">Class 11</SelectItem>
-              <SelectItem value="12">Class 12</SelectItem>
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((cls) => (
+                <SelectItem key={cls} value={cls}>Class {cls}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2">
-            <Filter className="h-4 w-4" />
-            More Filters
-          </Button>
         </div>
 
         {/* Students Table */}
         <div className="rounded-xl bg-card border border-border/50 shadow-md overflow-hidden animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Admission No.
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Class
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Parent/Guardian
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Fee Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredStudents.map((student) => {
-                  const feeStatus = feeStatusConfig[student.fees as keyof typeof feeStatusConfig];
-                  return (
-                    <tr key={student.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-sm font-semibold text-primary">
-                              {student.name.split(" ").map((n) => n[0]).join("")}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{student.name}</p>
-                            <p className={cn(
-                              "text-xs",
-                              student.status === "active" ? "text-success" : "text-muted-foreground"
-                            )}>
-                              {student.status === "active" ? "● Active" : "○ Inactive"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-foreground">{student.admNo}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-muted text-sm font-medium text-foreground">
-                          {student.class}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-foreground">{student.parent}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-muted-foreground">{student.phone}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
-                          feeStatus.color
-                        )}>
-                          {feeStatus.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2">
-                              <Eye className="h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Edit className="h-4 w-4" />
-                              Edit Student
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{filteredStudents.length}</span> of{" "}
-              <span className="font-medium">1,547</span> students
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm">
-                Next
-              </Button>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 rounded-full border-4 border-secondary border-t-transparent animate-spin" />
+                <p className="text-muted-foreground">Loading students...</p>
+              </div>
             </div>
-          </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-display font-semibold text-lg text-foreground mb-1">No students found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || classFilter !== "all" 
+                  ? "Try adjusting your search or filters"
+                  : "Get started by adding your first student"}
+              </p>
+              {!searchQuery && classFilter === "all" && (
+                <Button variant="secondary" onClick={() => setAddDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Student
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Student
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Admission No.
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Class
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Parent/Guardian
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-primary">
+                                {student.first_name[0]}{student.last_name[0]}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {student.first_name} {student.last_name}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-sm text-foreground">{student.admission_number}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-muted text-sm font-medium text-foreground">
+                            {student.class}-{student.section}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-foreground">{student.parent_name}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-muted-foreground">{student.parent_phone}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
+                            student.is_active 
+                              ? "bg-success/10 text-success" 
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            {student.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="gap-2" onClick={() => handleEdit(student)}>
+                                <Edit className="h-4 w-4" />
+                                Edit Student
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="gap-2 text-destructive" 
+                                onClick={() => handleDeleteClick(student)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium">{filteredStudents.length}</span> of{" "}
+                  <span className="font-medium">{students.length}</span> students
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Dialogs */}
+      <AddStudentDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={fetchStudents}
+      />
+      
+      <EditStudentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        student={selectedStudent}
+        onSuccess={fetchStudents}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        loading={deleteLoading}
+        title="Delete Student"
+        description={`Are you sure you want to delete ${selectedStudent?.first_name} ${selectedStudent?.last_name}? This action cannot be undone and will remove all associated records.`}
+      />
     </DashboardLayout>
   );
 }
