@@ -14,7 +14,350 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: unknown
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: unknown
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: unknown
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discounts: {
+        Row: {
+          applicability: string | null
+          created_at: string
+          discount_type: string
+          id: string
+          is_active: boolean
+          name: string
+          value: number
+        }
+        Insert: {
+          applicability?: string | null
+          created_at?: string
+          discount_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          value: number
+        }
+        Update: {
+          applicability?: string | null
+          created_at?: string
+          discount_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      fee_components: {
+        Row: {
+          amount: number
+          created_at: string
+          fee_structure_id: string
+          frequency: Database["public"]["Enums"]["fee_frequency"]
+          id: string
+          name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fee_structure_id: string
+          frequency: Database["public"]["Enums"]["fee_frequency"]
+          id?: string
+          name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fee_structure_id?: string
+          frequency?: Database["public"]["Enums"]["fee_frequency"]
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_components_fee_structure_id_fkey"
+            columns: ["fee_structure_id"]
+            isOneToOne: false
+            referencedRelation: "fee_structures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_structures: {
+        Row: {
+          classes: string[]
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          classes: string[]
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          classes?: string[]
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string
+          id: string
+          invoice_number: string
+          paid_amount: number
+          status: Database["public"]["Enums"]["invoice_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          invoice_number: string
+          paid_amount?: number
+          status?: Database["public"]["Enums"]["invoice_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          paid_amount?: number
+          status?: Database["public"]["Enums"]["invoice_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          gateway_response: Json | null
+          id: string
+          invoice_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          reference_number: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          gateway_response?: Json | null
+          id?: string
+          invoice_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          reference_number?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          gateway_response?: Json | null
+          id?: string
+          invoice_id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          reference_number?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          address: string | null
+          admission_date: string | null
+          admission_number: string
+          class: string
+          created_at: string
+          date_of_birth: string | null
+          first_name: string
+          id: string
+          is_active: boolean
+          last_name: string
+          parent_email: string | null
+          parent_name: string
+          parent_phone: string
+          section: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          admission_date?: string | null
+          admission_number: string
+          class: string
+          created_at?: string
+          date_of_birth?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean
+          last_name: string
+          parent_email?: string | null
+          parent_name: string
+          parent_phone: string
+          section: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          admission_date?: string | null
+          admission_number?: string
+          class?: string
+          created_at?: string
+          date_of_birth?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          parent_email?: string | null
+          parent_name?: string
+          parent_phone?: string
+          section?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +366,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      fee_frequency: "monthly" | "quarterly" | "annual"
+      invoice_status:
+        | "draft"
+        | "pending"
+        | "partial"
+        | "paid"
+        | "overdue"
+        | "cancelled"
+      payment_method: "upi" | "card" | "netbanking" | "cash" | "cheque"
+      payment_status: "pending" | "completed" | "failed" | "refunded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +502,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      fee_frequency: ["monthly", "quarterly", "annual"],
+      invoice_status: [
+        "draft",
+        "pending",
+        "partial",
+        "paid",
+        "overdue",
+        "cancelled",
+      ],
+      payment_method: ["upi", "card", "netbanking", "cash", "cheque"],
+      payment_status: ["pending", "completed", "failed", "refunded"],
+    },
   },
 } as const
