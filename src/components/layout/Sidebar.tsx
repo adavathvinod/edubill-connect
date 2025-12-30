@@ -5,7 +5,6 @@ import {
   Users,
   Receipt,
   CreditCard,
-  FileText,
   Settings,
   LogOut,
   ChevronLeft,
@@ -15,6 +14,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -29,6 +30,25 @@ const menuItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const userInitials = user?.user_metadata?.full_name
+    ? user.user_metadata.full_name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : user?.email?.slice(0, 2).toUpperCase() || "U";
+
+  const userName = user?.user_metadata?.full_name || user?.email || "User";
+  const userEmail = user?.email || "";
 
   return (
     <aside
@@ -93,15 +113,17 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-4">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-sm font-semibold text-sidebar-foreground">AD</span>
+            <span className="text-sm font-semibold text-sidebar-foreground">
+              {userInitials}
+            </span>
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                Admin User
+                {userName}
               </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                admin@school.edu
+                {userEmail}
               </p>
             </div>
           )}
@@ -109,6 +131,7 @@ export function Sidebar() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={handleSignOut}
               className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
             >
               <LogOut className="h-4 w-4" />
