@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Building2, Users, Shield, Bell, CreditCard, Database, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Building2, Users, Shield, Bell, CreditCard, Database, Save, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,16 +8,62 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { ConfigureRoleDialog } from "@/components/settings/ConfigureRoleDialog";
+import { useToast } from "@/hooks/use-toast";
 
-const roles = [
-  { id: "admin", name: "Admin", description: "Full access to all modules", users: 2, color: "bg-primary/10 text-primary" },
-  { id: "accountant", name: "Accountant", description: "Billing and reports access", users: 5, color: "bg-secondary/10 text-secondary" },
-  { id: "staff", name: "Staff", description: "View-only access", users: 12, color: "bg-muted text-muted-foreground" },
+const roleDefinitions = [
+  { id: "admin", name: "Admin", description: "Full access to all modules", color: "bg-primary/10 text-primary" },
+  { id: "accountant", name: "Accountant", description: "Billing and reports access", color: "bg-secondary/10 text-secondary" },
+  { id: "staff", name: "Staff", description: "View-only access", color: "bg-muted text-muted-foreground" },
 ];
 
 export default function Settings() {
   const [schoolName, setSchoolName] = useState("Delhi Public School");
   const [email, setEmail] = useState("admin@dps.edu");
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<typeof roleDefinitions[0] | null>(null);
+  const [configureDialogOpen, setConfigureDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchRoleCounts();
+  }, []);
+
+  const fetchRoleCounts = async () => {
+    setLoadingRoles(true);
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role");
+
+      if (error) throw error;
+
+      // Count users per role
+      const counts: Record<string, number> = {};
+      (data || []).forEach((item: { role: string }) => {
+        counts[item.role] = (counts[item.role] || 0) + 1;
+      });
+      setRoleCounts(counts);
+    } catch (error: any) {
+      console.error("Error fetching role counts:", error);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  const handleConfigureRole = (role: typeof roleDefinitions[0]) => {
+    setSelectedRole(role);
+    setConfigureDialogOpen(true);
+  };
+
+  const handleSaveSchoolInfo = () => {
+    toast({
+      title: "Settings saved",
+      description: "School information has been updated",
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -89,7 +135,7 @@ export default function Settings() {
                   <Label htmlFor="address">Address</Label>
                   <Input id="address" placeholder="Full school address" />
                 </div>
-                <Button variant="secondary" className="gap-2">
+                <Button variant="secondary" className="gap-2" onClick={handleSaveSchoolInfo}>
                   <Save className="h-4 w-4" />
                   Save Changes
                 </Button>
@@ -106,7 +152,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {roles.map((role) => (
+                  {roleDefinitions.map((role) => (
                     <div
                       key={role.id}
                       className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors"
@@ -122,9 +168,17 @@ export default function Settings() {
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="text-sm text-muted-foreground">
-                          {role.users} users
+                          {loadingRoles ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            `${roleCounts[role.id] || 0} users`
+                          )}
                         </span>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleConfigureRole(role)}
+                        >
                           Configure
                         </Button>
                       </div>
@@ -205,6 +259,16 @@ export default function Settings() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Configure Role Dialog */}
+        {selectedRole && (
+          <ConfigureRoleDialog
+            open={configureDialogOpen}
+            onOpenChange={setConfigureDialogOpen}
+            role={selectedRole}
+            onUpdate={fetchRoleCounts}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
