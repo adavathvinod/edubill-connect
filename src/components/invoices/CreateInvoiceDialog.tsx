@@ -135,6 +135,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, onSuccess }: CreateInv
           due_date: data.due_date,
           description: data.description || null,
           status: "pending" as const,
+          invoice_number: "TEMP", // Will be overwritten by database trigger
         }])
         .select()
         .single();
