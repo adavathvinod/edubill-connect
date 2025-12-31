@@ -9,7 +9,14 @@ export async function generateInvoicePDF(invoiceId: string): Promise<void> {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(error.message || "Failed to generate invoice PDF");
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
 
     if (data?.html) {
       // Open HTML in new window for printing/saving as PDF
@@ -49,7 +56,14 @@ export async function generateReport(
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(error.message || "Failed to generate report");
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
 
     if (data?.html) {
       // Open HTML in new window for printing/saving as PDF
