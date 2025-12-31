@@ -135,6 +135,7 @@ export function RecordPaymentDialog({ open, onOpenChange, onSuccess }: RecordPay
         payment_method: data.payment_method as "upi" | "card" | "netbanking" | "cash" | "cheque",
         status: "completed" as const,
         reference_number: data.reference_number || null,
+        transaction_id: "TEMP", // Will be overwritten by database trigger
       }]);
 
       if (paymentError) throw paymentError;
