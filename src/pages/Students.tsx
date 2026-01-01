@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, UserPlus, Download, MoreHorizontal, Eye, Edit, Trash2, Users } from "lucide-react";
+import { Search, Filter, UserPlus, Download, MoreHorizontal, Eye, Edit, Trash2, Users, Lock } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,9 @@ import { EditStudentDialog } from "@/components/students/EditStudentDialog";
 import { DeleteConfirmDialog } from "@/components/shared/DeleteConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface Student {
   id: string;
@@ -50,6 +52,10 @@ export default function Students() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const { toast } = useToast();
+  const { isStaff, hasAccess } = useUserRole();
+
+  // Staff has read-only access
+  const canEdit = hasAccess(["admin", "accountant"]);
 
   const fetchStudents = async () => {
     try {
@@ -163,9 +169,17 @@ export default function Students() {
         <header className="mb-8 animate-fade-in">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold text-foreground">Students</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-3xl font-bold text-foreground">Students</h1>
+                {isStaff && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Lock className="h-3 w-3" />
+                    View Only
+                  </Badge>
+                )}
+              </div>
               <p className="mt-1 text-muted-foreground">
-                Manage all student records and information
+                {isStaff ? "View student records (read-only access)" : "Manage all student records and information"}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -173,10 +187,12 @@ export default function Students() {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-              <Button variant="secondary" className="gap-2" onClick={() => setAddDialogOpen(true)}>
-                <UserPlus className="h-4 w-4" />
-                Add Student
-              </Button>
+              {canEdit && (
+                <Button variant="secondary" className="gap-2" onClick={() => setAddDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4" />
+                  Add Student
+                </Button>
+              )}
             </div>
           </div>
         </header>
@@ -225,7 +241,7 @@ export default function Students() {
                   ? "Try adjusting your search or filters"
                   : "Get started by adding your first student"}
               </p>
-              {!searchQuery && classFilter === "all" && (
+              {!searchQuery && classFilter === "all" && canEdit && (
                 <Button variant="secondary" onClick={() => setAddDialogOpen(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add Student
@@ -303,26 +319,32 @@ export default function Students() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="gap-2" onClick={() => handleEdit(student)}>
-                                <Edit className="h-4 w-4" />
-                                Edit Student
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="gap-2 text-destructive" 
-                                onClick={() => handleDeleteClick(student)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {canEdit ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem className="gap-2" onClick={() => handleEdit(student)}>
+                                  <Edit className="h-4 w-4" />
+                                  Edit Student
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="gap-2 text-destructive" 
+                                  onClick={() => handleDeleteClick(student)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <Button variant="ghost" size="icon" disabled>
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}

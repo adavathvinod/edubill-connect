@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Download, Send, Eye, MoreHorizontal, FileText, CheckCircle2, Clock, XCircle, Loader2, Receipt } from "lucide-react";
+import { Search, Plus, Download, Send, Eye, MoreHorizontal, FileText, CheckCircle2, Clock, XCircle, Loader2, Receipt, Lock } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,10 @@ import {
 import { CreateInvoiceDialog } from "@/components/invoices/CreateInvoiceDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserRole } from "@/hooks/useUserRole";
 import { generateInvoicePDF } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface Invoice {
   id: string;
@@ -55,6 +57,10 @@ export default function Invoices() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isStaff, hasAccess } = useUserRole();
+
+  // Staff has read-only access
+  const canEdit = hasAccess(["admin", "accountant"]);
 
   const fetchInvoices = async () => {
     try {
@@ -147,16 +153,26 @@ export default function Invoices() {
         <header className="mb-8 animate-fade-in">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold text-foreground">Invoices</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-3xl font-bold text-foreground">Invoices</h1>
+                {isStaff && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Lock className="h-3 w-3" />
+                    View Only
+                  </Badge>
+                )}
+              </div>
               <p className="mt-1 text-muted-foreground">
-                Create, manage, and track fee invoices
+                {isStaff ? "View fee invoices (read-only access)" : "Create, manage, and track fee invoices"}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="secondary" className="gap-2" onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Create Invoice
-              </Button>
+              {canEdit && (
+                <Button variant="secondary" className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Create Invoice
+                </Button>
+              )}
             </div>
           </div>
         </header>
@@ -223,7 +239,7 @@ export default function Invoices() {
                   ? "Try adjusting your search or filters"
                   : "Create your first invoice to get started"}
               </p>
-              {!searchQuery && statusFilter === "all" && (
+              {!searchQuery && statusFilter === "all" && canEdit && (
                 <Button variant="secondary" onClick={() => setCreateDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Invoice
