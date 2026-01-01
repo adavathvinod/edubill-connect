@@ -5,8 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { RoleBasedRoute } from "@/components/layout/RoleBasedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Fees from "./pages/Fees";
 import Invoices from "./pages/Invoices";
@@ -34,6 +36,16 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Dashboard - All roles */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            {/* Students - All roles can view */}
             <Route
               path="/students"
               element={
@@ -42,14 +54,18 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Fee Structure - Admin and Accountant only */}
             <Route
               path="/fees"
               element={
                 <ProtectedRoute>
-                  <Fees />
+                  <RoleBasedRoute allowedRoles={["admin", "accountant"]}>
+                    <Fees />
+                  </RoleBasedRoute>
                 </ProtectedRoute>
               }
             />
+            {/* Invoices - Admin and Accountant can manage */}
             <Route
               path="/invoices"
               element={
@@ -58,27 +74,36 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Payments - Admin and Accountant only */}
             <Route
               path="/payments"
               element={
                 <ProtectedRoute>
-                  <Payments />
+                  <RoleBasedRoute allowedRoles={["admin", "accountant"]}>
+                    <Payments />
+                  </RoleBasedRoute>
                 </ProtectedRoute>
               }
             />
+            {/* Reports - Admin and Accountant only */}
             <Route
               path="/reports"
               element={
                 <ProtectedRoute>
-                  <Reports />
+                  <RoleBasedRoute allowedRoles={["admin", "accountant"]}>
+                    <Reports />
+                  </RoleBasedRoute>
                 </ProtectedRoute>
               }
             />
+            {/* Settings - Admin only */}
             <Route
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <Settings />
+                  <RoleBasedRoute allowedRoles={["admin"]}>
+                    <Settings />
+                  </RoleBasedRoute>
                 </ProtectedRoute>
               }
             />
