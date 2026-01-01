@@ -135,7 +135,7 @@ export function Sidebar() {
 
       {/* User section */}
       <div className="border-t border-sidebar-border p-4">
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+        <div className={cn("flex items-center gap-3", collapsed && "flex-col")}>
           <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center">
             <span className="text-sm font-semibold text-sidebar-foreground">
               {userInitials}
@@ -151,16 +151,15 @@ export function Sidebar() {
               </p>
             </div>
           )}
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </aside>
