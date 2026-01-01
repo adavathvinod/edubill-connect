@@ -15,22 +15,34 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
+import type { Database } from "@/integrations/supabase/types";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Users, label: "Students", path: "/students" },
-  { icon: Wallet, label: "Fee Structure", path: "/fees" },
-  { icon: Receipt, label: "Invoices", path: "/invoices" },
-  { icon: CreditCard, label: "Payments", path: "/payments" },
-  { icon: BarChart3, label: "Reports", path: "/reports" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+interface MenuItem {
+  icon: typeof LayoutDashboard;
+  label: string;
+  path: string;
+  allowedRoles: AppRole[];
+}
+
+const menuItems: MenuItem[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", allowedRoles: ["admin", "accountant", "staff"] },
+  { icon: Users, label: "Students", path: "/students", allowedRoles: ["admin", "accountant", "staff"] },
+  { icon: Wallet, label: "Fee Structure", path: "/fees", allowedRoles: ["admin", "accountant"] },
+  { icon: Receipt, label: "Invoices", path: "/invoices", allowedRoles: ["admin", "accountant", "staff"] },
+  { icon: CreditCard, label: "Payments", path: "/payments", allowedRoles: ["admin", "accountant"] },
+  { icon: BarChart3, label: "Reports", path: "/reports", allowedRoles: ["admin", "accountant"] },
+  { icon: Settings, label: "Settings", path: "/settings", allowedRoles: ["admin"] },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { role, isAdmin, isAccountant } = useUserRole();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -49,6 +61,18 @@ export function Sidebar() {
 
   const userName = user?.user_metadata?.full_name || user?.email || "User";
   const userEmail = user?.email || "";
+
+  // Filter menu items based on user role
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (!role) return false;
+    return item.allowedRoles.includes(role);
+  });
+
+  const getRoleBadge = () => {
+    if (isAdmin) return "Admin";
+    if (isAccountant) return "Accountant";
+    return "Staff";
+  };
 
   return (
     <aside
@@ -87,7 +111,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-6 px-3">
         <ul className="space-y-1.5">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <li key={item.path}>
@@ -123,7 +147,7 @@ export function Sidebar() {
                 {userName}
               </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                {userEmail}
+                {getRoleBadge()}
               </p>
             </div>
           )}
